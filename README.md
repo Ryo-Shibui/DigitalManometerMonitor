@@ -1,20 +1,20 @@
 # Digital Manometer Pressure Monitor
 
-デジタルマノメータの0-10 Vアナログ出力をNI USB-6000で読み取り、圧力をリアルタイム表示、グラフ表示、CSV保存するWindowsデスクトップソフトです。
+This is a Windows desktop application for reading a pressure transducer or digital manometer analog voltage output through a National Instruments DAQ device. It displays pressure continuously, plots a measurement run, and saves pressure data to CSV.
 
-PCを買ったばかりでVisual Studioも入っていない状態から使えるように、必要なソフト、装置、配線、ビルド、操作手順をこのREADMEにまとめています。
+The goal of this README is that a person starting from a new Windows PC, without Visual Studio or device drivers installed yet, can understand what to prepare and how to run the program.
 
-## 何ができるか
+## What This Program Does
 
-- NI USB-6000のアナログ入力を自動検出する
-- 圧力を常時リアルタイム表示する
-- 1000 Hzのハードウェアタイミングで測定する
-- 0-10 Vから圧力への2点直線換算を設定できる
-- 手動停止またはタイマー停止でCSV保存する
-- 測定中の圧力をグラフ表示する
-- 測定停止後もライブ監視へ自動復帰する
+- Detects National Instruments analog input channels through NI-DAQmx
+- Continuously displays the current pressure before, during, and after logging
+- Acquires data with a 1000 Hz hardware-timed NI-DAQmx task
+- Converts voltage to pressure with an editable two-point linear calibration
+- Saves CSV files with manual stop or timer stop
+- Restarts live monitoring automatically after a logged measurement ends
+- Avoids overwriting existing CSV files
 
-CSVには測定条件のメタデータと、1 ms間隔の圧力データが保存されます。
+CSV output includes metadata and pressure samples:
 
 ```text
 # Digital Manometer Pressure Measurement
@@ -27,125 +27,135 @@ ElapsedTime_s,Pressure_Pa
 0.001000,124.001000
 ```
 
-既存ファイルは上書きしません。
+## Hardware Compatibility
 
-## 専用の装置か
+The developer tested this application with the NI USB-6000 style workflow: an NI DAQ device visible in NI MAX, with a voltage-output pressure device connected to an analog input channel.
 
-このソフトは、0-10 Vのアナログ電圧を出力するデジタルマノメータを、NI USB-6000シリーズのアナログ入力で読む構成を想定しています。
+The code is not limited to one exact NI USB model. It should work with any National Instruments DAQ device that:
 
-準備するもの:
+- is supported by NI-DAQmx on Windows;
+- appears in NI MAX;
+- exposes at least one analog input channel;
+- supports RSE analog voltage input;
+- supports a -10 V to +10 V input range;
+- can sustain 1000 samples/s on the selected channel.
 
-- 0-10 Vアナログ出力付きのデジタルマノメータ
-- NI USB-6000シリーズ、またはNI-DAQmxで同等に扱えるアナログ入力デバイス
-- Windows 10またはWindows 11の64 bit PC
-- マノメータ出力とNI端子をつなぐ信号線
-- CSV保存先フォルダ
+The pressure device also does not have to be one exact model. Any pressure transducer, digital manometer, or signal conditioner can be used if it outputs a voltage that can be mapped linearly to pressure. The default calibration assumes 0 V = 0 Pa and 10 V = 100000 Pa, but those values are editable in the GUI.
 
-このソフトはNI-DAQmxを使います。NI以外のDAQや、シリアル通信式のマノメータにはそのままでは使えません。
+Prepare:
 
-## 新品PCで最初に入れるもの
+- 64-bit Windows 10 or Windows 11 PC
+- National Instruments DAQ device supported by NI-DAQmx
+- Pressure device with analog voltage output
+- Signal wire from pressure output to a DAQ analog input
+- Return/common wire from pressure output to DAQ analog ground
+- Folder for CSV data
 
-1. Windows Updateを実行する。
-2. Visual Studio 2022をインストールする。
-3. Visual Studio Installerで `.NET desktop development` ワークロードを選ぶ。
-4. .NET 8 SDKをインストールする。Visual Studioのワークロードに含まれていれば追加作業は不要です。
-5. NI-DAQmxをインストールする。
-6. NI MAXを起動し、USB-6000が認識されていることを確認する。
+## Install on a Fresh PC
 
-NI MAXは必須ではありませんが、装置名、AIチャンネル、配線確認に便利なので強く推奨します。
+1. Run Windows Update.
+2. Install Visual Studio 2022.
+3. In Visual Studio Installer, select the `.NET desktop development` workload.
+4. Install the .NET 8 SDK if it was not installed with Visual Studio.
+5. Install NI-DAQmx.
+6. Open NI MAX and confirm that the DAQ device is visible.
 
-## 配線
+NI MAX is strongly recommended because it shows the device name and available analog input channels and helps verify wiring before running this program.
 
-このソフトはRSE入力を使います。
+## Wiring
+
+The application configures the analog input as RSE.
 
 ```text
-マノメータのアナログ出力信号  -> NI USB-6000のAIx端子 例: AI0
-マノメータのアナログ出力GND   -> NI USB-6000のAI GND
+Pressure-device analog output signal  -> DAQ AIx terminal, for example AI0
+Pressure-device analog output common  -> DAQ AI GND
 ```
 
-DAQの入力レンジはソフト側で -10 Vから+10 Vに固定しています。圧力換算はGUIの `Linear Pressure Scale` で設定します。
+The DAQ voltage input range is fixed in software at -10 V to +10 V. The pressure conversion is configured separately in the GUI under `Linear Pressure Scale`.
 
-初期値:
+Default conversion:
 
 - Voltage Low = 0 V
 - Voltage High = 10 V
 - Pressure at Low = 0 Pa
 - Pressure at High = 100000 Pa
 
-圧力計の仕様が違う場合は、この4項目を実機の校正値に合わせてください。
+Change these four values to match the actual pressure device.
 
-## ダウンロードして開く
+## Build and Run
 
-1. GitHubページの `Code` からZIPをダウンロードする、またはGitでcloneする。
-2. ZIPの場合は任意の作業フォルダへ展開する。
-3. `DigitalManometerMonitor.sln` をVisual Studio 2022で開く。
-4. 画面上部の構成を `Release`、プラットフォームを `x64` にする。
-5. スタートアッププロジェクトが `DigitalManometerMonitor` であることを確認する。
-6. `Build` -> `Build Solution` を実行する。
-7. `Start` またはF5で起動する。
+1. Download the repository from GitHub with `Code` -> `Download ZIP`, or clone it with Git.
+2. If you downloaded a ZIP file, extract it to a normal working folder.
+3. Open `DigitalManometerMonitor.sln` in Visual Studio 2022.
+4. Select `Release` and `x64`.
+5. Confirm that `DigitalManometerMonitor` is the startup project.
+6. Run `Build` -> `Build Solution`.
+7. Start the program with `Start` or `F5`.
 
-PowerShellでビルドする場合:
+You can also build from PowerShell:
 
 ```powershell
 .\build-release.ps1
 ```
 
-ビルド後の実行ファイルは通常、次の場所に作成されます。
+The built application is normally created at:
 
 ```text
 src\DigitalManometerMonitor\bin\x64\Release\net8.0-windows\DigitalManometerMonitor.exe
 ```
 
-## 使い方
+## Basic Operation
 
-1. NI USB-6000をPCに接続する。
-2. NI MAXでデバイスが見えることを確認する。
-3. マノメータの0-10 V出力をNI USB-6000へ配線する。
-4. ソフトを起動する。
-5. 起動時にAIチャンネルが自動検出され、利用可能ならライブ監視が始まる。
-6. 必要に応じて `Detect / Refresh DAQ` を押す。
-7. `DAQ Input` で使うAIチャンネルを選ぶ。
-8. `Linear Pressure Scale` をマノメータの仕様に合わせる。
-9. CSVの保存先フォルダとファイル名を設定する。
-10. `Manual` または `Timer (s)` を選ぶ。
-11. `Start Measurement` を押してCSV保存を開始する。
-12. Manualの場合は `Stop Measurement` で終了する。
+1. Connect the NI DAQ device to the PC.
+2. Confirm in NI MAX that the device is visible.
+3. Wire the pressure device voltage output to the selected DAQ analog input and analog ground.
+4. Start the application.
+5. The application scans available analog input channels at startup and starts live monitoring when possible.
+6. Click `Detect / Refresh DAQ` if the device was connected after startup.
+7. Select the desired AI channel in `DAQ Input`.
+8. Set `Linear Pressure Scale` for the pressure device.
+9. Choose the CSV folder and file name.
+10. Select `Manual` or `Timer (s)`.
+11. Click `Start Measurement`.
+12. In manual mode, click `Stop Measurement` when finished.
 
-測定中は同じAIチャンネルを測定タスクが使います。測定が止まると、ライブ監視タスクが自動で再開します。
+Only one NI-DAQmx task owns the selected input channel at a time. The program stops preview monitoring before logging and starts preview monitoring again after logging ends.
 
-## 実験前の確認
+## Before Using Experimental Data
 
-- NI MAXでUSB-6000が認識されている
-- 選んだAIチャンネルとAI GNDの配線が正しい
-- 既知の0 V、5 V、10 V入力に対して圧力表示が期待通り変わる
-- 1000 S/sで安定して測定できる
-- CSVの時刻が0.001 s刻みになっている
-- マノメータの校正値をGUIへ正しく入力している
+Check the following on the actual setup:
 
-## テスト
+- NI MAX shows the DAQ device.
+- The selected analog input channel and ground wiring are correct.
+- A known 0 V, 5 V, or 10 V signal produces the expected pressure after calibration.
+- 1000 samples/s is stable on the selected hardware.
+- CSV timestamps advance by 0.001 s.
+- The pressure calibration values in the GUI match the actual pressure device.
 
-実機なしで、圧力換算、DAQレンジ、タイマー、CSV形式、上書き防止、ライブ監視の自己テストを実行できます。
+## Tests
+
+Hardware-independent self-tests cover pressure scaling, DAQ range constants, timer sample count, CSV output, overwrite protection, and live-preview behavior.
 
 ```powershell
 .\run-self-tests.ps1
 ```
 
-または:
+or:
 
 ```powershell
 dotnet run --project .\tests\DigitalManometerMonitor.SelfTests\DigitalManometerMonitor.SelfTests.csproj
 ```
 
-Pythonが入っている場合は静的チェックも実行できます。
+If Python is installed, a static source check is also available:
 
 ```powershell
 python .\tests\static_source_checks.py
 ```
 
-## トラブルシュート
+## Troubleshooting
 
-- DAQが検出されない場合: NI-DAQmx、USB接続、NI MAXでの認識を確認してください。
-- 圧力が0付近から動かない場合: 信号線とAI GNDの配線、マノメータ側のアナログ出力設定を確認してください。
-- 値が大きくずれる場合: `Linear Pressure Scale` の4項目がマノメータ仕様と合っているか確認してください。
-- CSVが作れない場合: 保存先フォルダの書き込み権限と、同名ファイルが既に存在しないか確認してください。
-- 測定開始時にエラーが出る場合: 他のソフトやNI MAXのテストパネルが同じAIチャンネルを使用中でないか確認してください。
+- No DAQ channel appears: check NI-DAQmx, USB connection, and NI MAX.
+- Pressure stays near zero: check signal wiring, analog ground, and pressure-device output settings.
+- Pressure is scaled incorrectly: check the four `Linear Pressure Scale` values.
+- CSV cannot be created: check folder write permission and whether a file with the same name already exists.
+- Measurement fails to start: close NI MAX test panels or other software that may already be using the same channel.
